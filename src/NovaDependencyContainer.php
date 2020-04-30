@@ -154,6 +154,12 @@ class NovaDependencyContainer extends Field
             }
 
             if (array_key_exists('value', $dependency)) {
+                if ($this->relatationDependencySatisfied($resource, $dependency)) {
+                    $this->meta['dependencies'][$index]['satisfied'] = true;
+
+                    continue;
+                }
+
                 if($dependency['value'] == $resource->{$dependency['property']}) {
                     $this->meta['dependencies'][$index]['satisfied'] = true;
                     continue;
@@ -304,5 +310,18 @@ class NovaDependencyContainer extends Field
             $this->getRules($request),
             $fieldsRules
         );
+    }
+
+    /**
+     * @param $resource
+     * @param $dependency
+     * @return bool
+     */
+    protected function relatationDependencySatisfied($resource, $dependency): bool
+    {
+        $relatedEntity = $resource->{$dependency['field']};
+
+        return $relatedEntity instanceof Model
+            && $relatedEntity->{$dependency['property']} == $dependency['value'];
     }
 }
