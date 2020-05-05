@@ -154,6 +154,14 @@ class NovaDependencyContainer extends Field
             }
 
             if (array_key_exists('value', $dependency)) {
+                if (is_array($resource->{$dependency['property']})
+                    && in_array($dependency['value'], $resource->{$dependency['property']})
+                ) {
+                    $this->meta['dependencies'][$index]['satisfied'] = true;
+
+                    continue;
+                }
+                
                 if ($this->relatationDependencySatisfied($resource, $dependency)) {
                     $this->meta['dependencies'][$index]['satisfied'] = true;
 

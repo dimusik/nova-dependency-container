@@ -2,19 +2,22 @@
 	<div v-if="dependenciesSatisfied">
 		<div v-for="childField in field.fields">
 			<component
-				:is="'form-' + childField.component"
-                :errors="errors"
-				:resource-id="resourceId"
-				:resource-name="resourceName"
-				:field="childField"
-				:ref="'field-' + childField.attribute"
+					:is="'form-' + childField.component"
+					:errors="errors"
+					:resource-id="resourceId"
+					:resource-name="resourceName"
+					:field="childField"
+					:ref="'field-' + childField.attribute"
 			/>
 		</div>
 	</div>
 </template>
 
 <script>
-	import {FormField, HandlesValidationErrors} from 'laravel-nova'
+	import {
+		FormField,
+		HandlesValidationErrors
+	} from 'laravel-nova'
 
 	export default {
 		mixins: [FormField, HandlesValidationErrors],
@@ -22,7 +25,7 @@
 		props: ['resourceName', 'resourceId', 'field'],
 
 		mounted() {
-			this.registerDependencyWatchers(this.$root, function() {
+			this.registerDependencyWatchers(this.$root, function () {
 				this.updateDependencyStatus();
 			});
 		},
@@ -35,48 +38,59 @@
 		},
 
 		methods: {
+			addWatcher(component, attribute, value) {
+				if (attribute === 'selectedResource') {
+					value = (value && value.value) || null;
+				}
+
+				if (Array.isArray(value)) {
+					this.dependencyValues[component.field.attribute] = []
+
+					value.forEach((object, key) => {
+						this.dependencyValues[component.field.attribute].push(object[attribute]);
+					})
+				} else {
+					this.dependencyValues[component.field.attribute] = value;
+				}
+			},
 
 			// @todo: refactor entire watcher procedure, this approach isn't maintainable ..
 			registerDependencyWatchers(root, callback) {
-				callback = callback || null;
+				callback = callback || null
+
 				root.$children.forEach(component => {
 					if (this.componentIsDependency(component)) {
-
 						// @todo: change `findWatchableComponentAttribute` to return initial state(s) of current dependency.
 						let attribute = this.findWatchableComponentAttribute(component),
-							initial_value = component.field.value; // @note: quick-fix for issue #88
+								initialValue = component.field.value; // @note: quick-fix for issue #88
 
 						component.$watch(attribute, (value) => {
-							// @todo: move to reactive factory
-							if (attribute === 'selectedResource') {
-								value = (value && value.value) || null;
-							}
-							this.dependencyValues[component.field.attribute] = value;
-							// @todo: change value as argument for `updateDependencyStatus`
+							this.addWatcher(component, attribute, value)
 							this.updateDependencyStatus()
-						}, {immediate: true});
+						}, { immediate: true })
 
 						// @todo: move to initial state
 						// @note quick-fix for issue #88
 						if (attribute === 'fieldTypeName') {
-							initial_value = component.field.resourceLabel;
+							initialValue = component.field.resourceLabel
 						}
 
 						// @todo: replace with `updateDependencyStatus(initial_value)` and let it resolve dependency state
-						this.dependencyValues[component.field.attribute] = initial_value;
+						this.dependencyValues[component.field.attribute] = initialValue
 					}
 
 					this.registerDependencyWatchers(component)
 				});
 
-				if(callback !== null) {
-					callback.call(this);
+				if (callback !== null) {
+					callback.call(this)
 				}
 			},
 
 			// @todo: not maintainable, move to factory
 			findWatchableComponentAttribute(component) {
 				let attribute;
+
 				switch(component.field.component) {
 					case 'belongs-to-many-field':
 					case 'belongs-to-field':
@@ -88,6 +102,7 @@
 					default:
 						attribute = 'value';
 				}
+
 				return attribute;
 			},
 
@@ -109,26 +124,35 @@
 			// @todo: align this method with the responsibility of updating the dependency, not verifying the dependency "values"
 			updateDependencyStatus() {
 				for (let dependency of this.field.dependencies) {
-
 					// #93 compatability with flexible-content, which adds a generated attribute for each field
-					let dependencyValue = this.dependencyValues[(this.field.attribute + dependency.field)];
-					if(dependency.hasOwnProperty('empty') && !dependencyValue) {
+					let selectedValue = this.dependencyValues[(this.field.attribute + dependency.field)];
+
+					if (dependency.hasOwnProperty('empty') && !selectedValue) {
 						this.dependenciesSatisfied = true;
 						return;
 					}
 
-					if(dependency.hasOwnProperty('notEmpty') && dependencyValue) {
+					if (dependency.hasOwnProperty('notEmpty') && selectedValue) {
 						this.dependenciesSatisfied = true;
 						return;
 					}
 
-					if(dependency.hasOwnProperty('nullOrZero') && 1 < [undefined, null, 0, '0'].indexOf(dependencyValue) ) {
+					if (dependency.hasOwnProperty('nullOrZero') && 1 < [undefined, null, 0, '0'].indexOf(selectedValue) ) {
 						this.dependenciesSatisfied = true;
 						return;
 					}
 
-					if(dependency.hasOwnProperty('value') && dependencyValue == dependency.value) {
-						this.dependenciesSatisfied = true;
+					if (dependency.hasOwnProperty('value')) {
+						let result = false
+
+						if (Array.isArray(selectedValue) && selectedValue.includes(dependency.value)) {
+							result = true
+						} else if (dependency.value == selectedValue) {
+							result = true
+						}
+
+						this.dependenciesSatisfied = result;
+
 						return;
 					}
 				}
