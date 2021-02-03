@@ -93,6 +93,9 @@
 
 				switch(component.field.component) {
 					case 'belongs-to-many-field':
+					case 'belongs-to-broadcaster-field':
+						attribute = 'selectedResource';
+						break;
 					case 'belongs-to-field':
 						attribute = 'selectedResource';
 						break;
